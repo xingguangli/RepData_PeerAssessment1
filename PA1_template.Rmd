@@ -1,25 +1,109 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Assignment1"
+author: "Xingguang Li"
+date: "December 25, 2017"
+output: html_document
 ---
 
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE, error = FALSE, warning = FALSE, message = FALSE)
+```
 
-## Loading and preprocessing the data
+## Introduction 
+In this assignment, the activity data set is explorerd and analyzed. 
 
+## Data loading and preprocessing
+The csv file is loaded along with the formatting of time variables.
+```{r load-data}
+activity <- read.csv("activity.csv",head=TRUE)
+activity$date <- as.Date(activity$date,format="%Y-%m-%d")
+head(activity,5)
+str(activity)
+```
 
+## Mean total number of steps taken per day
+### Aggregate the total number of steps per day
+To obtain the daily total steps, the step data is aggregated for each day.
 
-## What is mean total number of steps taken per day?
+The new data set is stored in activity-daily.
 
+```{r}
+library(dplyr)
+activity_daily <- aggregate(steps~date,activity,sum,na.rm=TRUE)
+```
+### Histogram of total number of steps per day
+Now the histogram of total number of steps per day is plotted.
+```{r Hist, fig.height=3, fig.width=6,fig.align='center'}
+hist(activity_daily$steps,breaks = 50, main = "Total number of steps per day", xlab = "Steps")
+```
 
+### Mean and median of total number of steps per day
 
-## What is the average daily activity pattern?
+The mean and median of the total number of steps per day are calculated as below:
+```{r}
+mean(activity_daily$steps)
+median(activity_daily$steps)
+```
 
+## average daily activity pattern
+Now we investigate the daily activity pattern.
 
+To do this we first aggregate the number of steps for each 5 min over all days.
+
+```{r}
+activity_5min <- aggregate(steps~interval,activity,sum,na.rm=TRUE)
+```
+
+### Time series plot
+Here is a time series plot presenting the number of steps for each 5 min over all days.
+```{r TS1, fig.height=3, fig.width=6,fig.align='center'}
+plot(activity_5min$interval,activity_5min$steps,type="l",main="Number of steps for each 5 min", xlab="Time", ylab="Steps")
+```
+
+### The interval with the maximum number of steps 
+The interval that has the maximal number of steps on average is calculated as below:
+```{r}
+activity_5min %>% subset(steps == max(steps))
+```
+So the interval 835 has the maximal average number of steps.
 
 ## Imputing missing values
+### Number of missing values
+```{r}
+nrow(activity %>% filter(is.na(steps))) 
+```
+### Median Imputation
+The imputation technique adopted here is the median imputation for each interval.
+```{r,cache=TRUE}
+steps_median <- activity %>% aggregate(steps~interval,data=.,median,na.rm=TRUE)
+activity$steps_impute <- ifelse(is.na(activity$steps),steps_median[which(activity$interval==steps_median$interval),"steps"],activity$steps)
+```
 
+### Histogram of total number of steps per day
+```{r Hist2,fig.height=3, fig.width=6,fig.align='center'}
+activity_daily_impute <- aggregate(steps_impute~date,activity,sum,na.rm=TRUE)
+hist(activity_daily_impute$steps_impute,breaks=50,main = "Total number of steps per day", xlab = "Steps")
+```
 
+### Mean and median of total number of steps per day
+The mean and median of the total number of steps per day after imputation are calculated as below:
+```{r}
+mean(activity_daily_impute$steps_impute)
+median(activity_daily_impute$steps_impute)
+```
+In comparison with the values before imputation, the imputed mean and median go down because of the imputed values regressing to the median. 
 
-## Are there differences in activity patterns between weekdays and weekends?
+### Difference between weekdays and weekends
+Determine weekdays and weekends of the imputed data set
+```{r}
+activity <- activity %>% mutate(date_wk=weekdays(date))
+activity$date_wk <- ifelse(activity$date_wk %in% c("Sunday","Saturday"),"Weekend","Weekday")
+activity$date_wk <- as.factor(activity$date_wk)
+```
+Plot the corresponding time series using lattice plot.
+```{r TS2,fig.height=4, fig.width=6,fig.align='center'}
+library(lattice)
+xyplot(steps_impute ~ interval|date_wk, data=activity, type='l',layout=c(1,2),ylab="Steps", xlab="Time", main="Number of steps over time")
+```
+
+It can be observed that people start to walk earlier on weekdays than weekends.
